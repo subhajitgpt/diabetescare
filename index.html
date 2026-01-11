@@ -756,6 +756,15 @@
                 <div id="rangeStatus" style="margin-top:6px; font-weight:900;">In Range</div>
                 <div class="helper">Common target range used in the demo: 70–180 mg/dL (confirm with your clinician).</div>
               </div>
+
+              <div class="mini" style="margin-top:12px;">
+                <div class="label">Diabetic wellness score (demo)</div>
+                <div class="helper" style="margin-top:8px;">Uses your Dashboard metrics to compute a 0–100 wellness score and a short-term risk prediction with explainable feature contributions. Informational only; not medical advice.</div>
+                <div class="row" style="margin-top:10px;">
+                  <button id="btnWellness" class="btn primary" type="button">Compute wellness</button>
+                </div>
+                <div id="wellnessOut" style="margin-top:10px; color: var(--text); font-weight:700; line-height:1.45;">—</div>
+              </div>
             </div>
 
             <div class="aiBox">
@@ -1032,6 +1041,125 @@
     let pyodideReady = null;
     let openaiKey = null;
 
+    const PY_DEMO_MODEL_CODE = `
+  import base64, hashlib
+  import json, math
+
+  def decrypt_key(encrypted_data: str, passphrase: str = "default_salt_2024") -> str:
+    try:
+      encrypted_bytes = base64.b64decode(encrypted_data)
+      key_hash = hashlib.sha256(passphrase.encode()).digest()
+      out = bytearray()
+      for i, b in enumerate(encrypted_bytes):
+        out.append(b ^ key_hash[i % len(key_hash)])
+      return out.decode("utf-8")
+    except Exception:
+      return ""
+
+  def _clamp(x: float, lo: float, hi: float) -> float:
+    return lo if x < lo else hi if x > hi else x
+
+  def _sigmoid(z: float) -> float:
+    # Stable sigmoid
+    if z >= 0:
+      ez = math.exp(-z)
+      return 1.0 / (1.0 + ez)
+    ez = math.exp(z)
+    return ez / (1.0 + ez)
+
+  def wellness_assess(payload: dict) -> dict:
+    """Return a wellness score (0-100) and a simple risk prediction with explanations.
+
+    This is a demo heuristic model: NOT medical advice.
+    """
+
+    def num(v, default):
+      try:
+        if v is None:
+          return float(default)
+        if isinstance(v, (int, float)):
+          return float(v)
+        s = str(v).strip()
+        return float(s) if s else float(default)
+      except Exception:
+        return float(default)
+
+    glucose = num(payload.get("glucose"), 112.0)
+    steps = num(payload.get("steps"), 0.0)
+    a1c = num(payload.get("a1c"), 6.2)
+
+    # --- Wellness score components ---
+    # Glucose penalty: favor 70-180, best near ~110.
+    dev = abs(glucose - 110.0)
+    glucose_pen = _clamp(dev / 2.0, 0.0, 35.0)
+    if glucose < 70.0:
+      glucose_pen += _clamp((70.0 - glucose) / 1.5, 0.0, 25.0)
+    if glucose > 180.0:
+      glucose_pen += _clamp((glucose - 180.0) / 2.0, 0.0, 25.0)
+    glucose_pen = _clamp(glucose_pen, 0.0, 60.0)
+
+    # Steps penalty: reward up to 8k steps/day in this demo.
+    steps_target = 8000.0
+    steps_ratio = _clamp(steps / steps_target, 0.0, 1.0)
+    steps_pen = (1.0 - steps_ratio) * 20.0
+
+    # HbA1c penalty: none up to ~5.7, then scaled.
+    a1c_pen = 0.0
+    if a1c > 5.7:
+      a1c_pen = _clamp((a1c - 5.7) * 12.0, 0.0, 30.0)
+
+    raw_score = 100.0 - (glucose_pen + steps_pen + a1c_pen)
+    score = int(round(_clamp(raw_score, 0.0, 100.0)))
+
+    score_breakdown = [
+      {"feature": "Glucose (mg/dL)", "value": glucose, "impact_points": -round(glucose_pen, 1), "why": "Farther from ~110 and/or outside 70–180 increases penalty."},
+      {"feature": "Steps", "value": steps, "impact_points": -round(steps_pen, 1), "why": "More steps (up to ~8k) reduces penalty."},
+      {"feature": "HbA1c (%)", "value": a1c, "impact_points": -round(a1c_pen, 1), "why": "Higher HbA1c increases penalty."},
+    ]
+
+    # --- Short-term risk prediction (demo) ---
+    # Predict risk of being out of 70–180 range in the next few hours (heuristic).
+    # Log-odds model with simple, explainable terms.
+    intercept = -1.2
+    c_glucose = 0.03 * (glucose - 110.0)
+    c_steps = -0.00008 * (steps - 6000.0)
+    c_a1c = 0.8 * (a1c - 6.0)
+    z = intercept + c_glucose + c_steps + c_a1c
+    prob = _clamp(_sigmoid(z), 0.01, 0.99)
+
+    if prob < 0.25:
+      risk_label = "Low"
+    elif prob < 0.55:
+      risk_label = "Moderate"
+    else:
+      risk_label = "High"
+
+    risk_breakdown = [
+      {"feature": "Intercept", "value": None, "contribution_logodds": round(intercept, 3)},
+      {"feature": "Glucose term", "value": glucose, "contribution_logodds": round(c_glucose, 3)},
+      {"feature": "Steps term", "value": steps, "contribution_logodds": round(c_steps, 3)},
+      {"feature": "HbA1c term", "value": a1c, "contribution_logodds": round(c_a1c, 3)},
+    ]
+
+    return {
+      "wellnessScore": score,
+      "riskProbability": round(prob, 3),
+      "riskLabel": risk_label,
+      "scoreBreakdown": score_breakdown,
+      "riskBreakdown": risk_breakdown,
+      "disclaimer": "Demo heuristic model; informational only; not medical advice.",
+    }
+
+  def wellness_assess_json(payload_json: str) -> str:
+    try:
+      payload = json.loads(payload_json or "{}")
+      if not isinstance(payload, dict):
+        payload = {}
+    except Exception:
+      payload = {}
+    return json.dumps(wellness_assess(payload))
+  `;
+
     async function initPyodideAndDecrypt() {
       $("#aiStatus").textContent = "AI loading…";
       $("#aiKeyHint").textContent = "AI status: initializing Pyodide…";
@@ -1039,20 +1167,7 @@
       pyodideReady = loadPyodide({});
       const py = await pyodideReady;
 
-      await py.runPythonAsync(`
-import base64, hashlib
-
-def decrypt_key(encrypted_data: str, passphrase: str = "default_salt_2024") -> str:
-    try:
-        encrypted_bytes = base64.b64decode(encrypted_data)
-        key_hash = hashlib.sha256(passphrase.encode()).digest()
-        out = bytearray()
-        for i, b in enumerate(encrypted_bytes):
-            out.append(b ^ key_hash[i % len(key_hash)])
-        return out.decode("utf-8")
-    except Exception:
-        return ""
-`);
+        await py.runPythonAsync(PY_DEMO_MODEL_CODE);
 
       const decrypted = await py.runPythonAsync(`decrypt_key("""${OPENAI_KEY_ENCRYPTED}""", "${KEY_PASSPHRASE}")`);
       openaiKey = (typeof decrypted === "string") ? decrypted.trim() : "";
@@ -1549,8 +1664,8 @@ def decrypt_key(encrypted_data: str, passphrase: str = "default_salt_2024") -> s
       wireShopHandlers();
 
       // Tabs
-      const savedTab = localStorage.getItem("diabetocare_tab") || "home";
-      setActiveTab(savedTab);
+      const firstTab = $$(".tabLink")[0]?.getAttribute("data-tab") || "home";
+      setActiveTab(firstTab);
       $$(".tabLink").forEach((btn) => {
         btn.addEventListener("click", () => setActiveTab(btn.getAttribute("data-tab")));
       });
@@ -1580,6 +1695,72 @@ def decrypt_key(encrypted_data: str, passphrase: str = "default_salt_2024") -> s
       });
 
       $("#btnWeekly").addEventListener("click", downloadWeekly);
+
+      $("#btnWellness")?.addEventListener("click", async () => {
+        if (!pyodideReady) {
+          toast("Pyodide not initialized");
+          return;
+        }
+        try {
+          const py = await pyodideReady;
+          try {
+            if (!py.globals.has("wellness_assess_json")) {
+              await py.runPythonAsync(PY_DEMO_MODEL_CODE);
+            }
+          } catch (_) {
+            // If globals.has isn't available for any reason, still try to load the code.
+            await py.runPythonAsync(PY_DEMO_MODEL_CODE);
+          }
+          const m = getMetrics();
+          const payload = { glucose: m.glucose, steps: m.steps, a1c: m.a1c };
+          py.globals.set("__wellness_payload_json", JSON.stringify(payload));
+          const out = await py.runPythonAsync("wellness_assess_json(__wellness_payload_json)");
+          try { py.globals.delete("__wellness_payload_json"); } catch (_) {}
+
+          const parsed = JSON.parse(String(out || "{}"));
+          const score = parsed?.wellnessScore;
+          const riskLabel = parsed?.riskLabel;
+          const riskProb = parsed?.riskProbability;
+          const scoreBreakdown = Array.isArray(parsed?.scoreBreakdown) ? parsed.scoreBreakdown : [];
+          const riskBreakdown = Array.isArray(parsed?.riskBreakdown) ? parsed.riskBreakdown : [];
+
+          const lines = [];
+          lines.push(`<div style="font-weight:900; font-size:16px;">Wellness score: ${escapeHtml(String(score))} / 100</div>`);
+          lines.push(`<div style="margin-top:6px; color: var(--muted);">Short-term risk (demo): <span style="font-weight:900; color: var(--text);">${escapeHtml(String(riskLabel))}</span> (${escapeHtml(String(Math.round(Number(riskProb) * 100)))}%)</div>`);
+          if (scoreBreakdown.length) {
+            lines.push(`<div style="margin-top:10px; font-weight:900;">Explainable features</div>`);
+            lines.push(`<div style="margin-top:6px; color: var(--muted);">Impact is in score points (negative lowers the score).</div>`);
+            lines.push(`<div style="margin-top:8px; display:grid; gap:6px;">`);
+            for (const row of scoreBreakdown) {
+              const f = row?.feature ?? "";
+              const v = row?.value;
+              const pts = row?.impact_points;
+              const why = row?.why ?? "";
+              lines.push(`<div class="mini" style="padding:10px; background: rgba(11,18,32,0.18);"><div style="font-weight:900;">${escapeHtml(String(f))}: ${escapeHtml(String(v))} <span style="color: var(--muted2); font-weight:800;">(${escapeHtml(String(pts))} pts)</span></div><div style="margin-top:4px; color: var(--muted); font-size:13px; line-height:1.45;">${escapeHtml(String(why))}</div></div>`);
+            }
+            lines.push(`</div>`);
+          }
+
+          if (riskBreakdown.length) {
+            lines.push(`<div style="margin-top:12px; font-weight:900;">Risk prediction explanation</div>`);
+            lines.push(`<div style="margin-top:6px; color: var(--muted);">Contributions are in log-odds (positive increases risk; negative decreases risk).</div>`);
+            lines.push(`<div style="margin-top:8px; display:grid; gap:6px;">`);
+            for (const row of riskBreakdown) {
+              const f = row?.feature ?? "";
+              const v = row?.value;
+              const c = row?.contribution_logodds;
+              const vText = (v === null || typeof v === "undefined") ? "—" : String(v);
+              lines.push(`<div class="mini" style="padding:10px; background: rgba(11,18,32,0.18);"><div style="font-weight:900;">${escapeHtml(String(f))}: ${escapeHtml(vText)} <span style="color: var(--muted2); font-weight:800;">(${escapeHtml(String(c))} log-odds)</span></div></div>`);
+            }
+            lines.push(`</div>`);
+          }
+          lines.push(`<div class="helper" style="margin-top:10px;">${escapeHtml(String(parsed?.disclaimer || ""))}</div>`);
+
+          $("#wellnessOut").innerHTML = lines.join("");
+        } catch (e) {
+          $("#wellnessOut").textContent = `Could not compute score: ${e?.message || e}`;
+        }
+      });
 
       $("#btnOfflineReco").addEventListener("click", () => {
         const txt = offlineRecommendation(getMetrics());
