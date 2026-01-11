@@ -1,0 +1,1650 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DiabetoCare — Diabetes Lifestyle Companion (Demo)</title>
+  <meta name="description" content="Demo single-file Pyodide app for diabetes tracking, workouts, AI companion, and marketplace." />
+  <style>
+    :root {
+      --bg: #0b1220;
+      --panel: #0f1b33;
+      --panel2: #0d1730;
+      --text: #e9eefc;
+      --muted: rgba(233, 238, 252, 0.72);
+      --muted2: rgba(233, 238, 252, 0.55);
+      --border: rgba(233, 238, 252, 0.12);
+      --accent: #6ea8ff;
+      --accent2: #48d1c4;
+      --danger: #ff5d73;
+      --ok: #35d07f;
+      --shadow: 0 18px 60px rgba(0,0,0,.35);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background:
+        radial-gradient(1200px 800px at 10% -10%, rgba(110,168,255,0.25), transparent 55%),
+        radial-gradient(900px 700px at 90% 10%, rgba(72,209,196,0.18), transparent 55%),
+        radial-gradient(700px 900px at 50% 120%, rgba(110,168,255,0.18), transparent 60%),
+        var(--bg);
+    }
+
+    a { color: inherit; text-decoration: none; }
+
+    .container { width: min(1100px, calc(100% - 40px)); margin: 0 auto; }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(10px);
+      background: linear-gradient(to bottom, rgba(11,18,32,0.82), rgba(11,18,32,0.48));
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 14px 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .logo {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(110,168,255,1), rgba(72,209,196,1));
+      box-shadow: 0 10px 40px rgba(110,168,255,0.25);
+    }
+
+    .navlinks {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .pill {
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      background: rgba(15,27,51,0.35);
+    }
+
+    .pill:hover { border-color: rgba(110,168,255,0.35); color: var(--text); }
+
+    .pill.active {
+      border-color: rgba(110,168,255,0.65);
+      color: var(--text);
+      background: linear-gradient(135deg, rgba(110,168,255,0.22), rgba(72,209,196,0.16));
+    }
+
+    .tabPage { display: none; }
+    .tabPage.active { display: block; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      border-radius: 12px;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      background: rgba(15,27,51,0.45);
+      color: var(--text);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: rgba(110,168,255,0.4); }
+
+    .btn.sm {
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 800;
+      gap: 8px;
+    }
+
+    .btn.primary {
+      border-color: rgba(110,168,255,0.65);
+      background: linear-gradient(135deg, rgba(110,168,255,0.30), rgba(72,209,196,0.22));
+    }
+
+    .btn.danger { border-color: rgba(255,93,115,0.6); }
+
+    .hero {
+      padding: 44px 0 22px;
+    }
+
+    .heroGrid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: stretch;
+    }
+
+    @media (max-width: 900px) {
+      .heroGrid { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, rgba(15,27,51,0.70), rgba(13,23,48,0.65));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .heroCard {
+      padding: 22px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .heroH1 {
+      font-size: clamp(30px, 5vw, 46px);
+      line-height: 1.02;
+      margin: 0 0 10px;
+      letter-spacing: -0.02em;
+    }
+
+    .heroP {
+      margin: 0 0 16px;
+      color: var(--muted);
+      font-size: 15px;
+      line-height: 1.5;
+      max-width: 60ch;
+    }
+
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 12px 0 0;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11,18,32,0.35);
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .statsCard { padding: 18px; }
+
+    .subtle {
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .bigStat {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .mini {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(11,18,32,0.30);
+    }
+
+    .mini .label { color: var(--muted2); font-weight: 800; font-size: 12px; }
+    .mini .value { font-weight: 900; font-size: 20px; margin-top: 4px; }
+
+    .ok { color: var(--ok); }
+    .danger { color: var(--danger); }
+
+    section { padding: 22px 0; }
+
+    .sectionTitle {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 22px;
+      letter-spacing: -0.01em;
+    }
+
+    .grid3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .grid3 { grid-template-columns: 1fr; }
+    }
+
+    .feature {
+      padding: 16px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(11,18,32,0.28);
+      min-height: 140px;
+    }
+
+    .feature h3 { margin: 0 0 6px; font-size: 15px; }
+    .feature p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+
+    .dashboardGrid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .dashboardGrid { grid-template-columns: 1fr; }
+    }
+
+    .dashLeft { padding: 16px; }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .input {
+      flex: 1;
+      min-width: 160px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(11,18,32,0.35);
+      color: var(--text);
+      padding: 10px 12px;
+      font-weight: 700;
+      outline: none;
+    }
+
+    .input::placeholder { color: rgba(233,238,252,0.45); }
+
+    .helper { color: var(--muted2); font-size: 12px; margin-top: 8px; }
+
+    .aiBox { padding: 16px; }
+
+    .chat {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(11,18,32,0.35);
+      height: 360px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chatLog {
+      padding: 12px;
+      overflow: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: rgba(15,27,51,0.40);
+      color: var(--text);
+      line-height: 1.45;
+      font-size: 13px;
+      white-space: pre-wrap;
+    }
+
+    .msg.user {
+      margin-left: auto;
+      border-color: rgba(110,168,255,0.45);
+      background: rgba(110,168,255,0.12);
+    }
+
+    .chatComposer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      background: rgba(15,27,51,0.35);
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 0;
+    }
+
+    .chip {
+      border-radius: 999px;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      background: rgba(15,27,51,0.35);
+      color: var(--muted);
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .chip:hover { border-color: rgba(110,168,255,0.35); color: var(--text); }
+
+    .workouts { padding: 16px; }
+
+    .workoutCards {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) {
+      .workoutCards { grid-template-columns: 1fr; }
+    }
+
+    .workout {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: rgba(11,18,32,0.28);
+      padding: 14px;
+    }
+
+    .workout .title { font-weight: 900; }
+    .workout .meta { margin-top: 8px; color: var(--muted); font-size: 12px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+    .market { padding: 16px; }
+
+    .shopIntro {
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+    @media (max-width: 900px) { .shopIntro { grid-template-columns: 1fr; } }
+
+    .shopKpis {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (max-width: 900px) { .shopKpis { grid-template-columns: 1fr; } }
+
+    .filtersRow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0 10px;
+    }
+
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip.active {
+      border-color: rgba(110,168,255,0.65);
+      color: var(--text);
+      background: rgba(110,168,255,0.14);
+    }
+
+    .products {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 900px) { .products { grid-template-columns: 1fr; } }
+
+    .product {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: rgba(11,18,32,0.28);
+      padding: 14px;
+      overflow: hidden;
+    }
+
+    .productMedia {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: rgba(15,27,51,0.35);
+      overflow: hidden;
+      height: 150px;
+    }
+
+    .productMedia img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      filter: saturate(1.05);
+    }
+
+    .productBadges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      background: rgba(15,27,51,0.35);
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 11px;
+      letter-spacing: 0.02em;
+    }
+
+    .categoryLabel {
+      margin-top: 8px;
+      color: var(--muted2);
+      font-weight: 900;
+      font-size: 11px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+    }
+
+    .ratingRow {
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 12px;
+    }
+
+    .ratingRow .star {
+      color: rgba(110,168,255,0.9);
+      font-weight: 900;
+    }
+
+    .priceRow {
+      margin-top: 10px;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .productActions { margin-top: 10px; }
+
+    .fab {
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      z-index: 110;
+      width: 56px;
+      height: 56px;
+      border-radius: 18px;
+      border: 1px solid rgba(110,168,255,0.55);
+      background: linear-gradient(135deg, rgba(110,168,255,0.30), rgba(72,209,196,0.22));
+      color: var(--text);
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(6px);
+      display: none;
+      z-index: 105;
+    }
+
+    .overlay.open { display: block; }
+
+    .aiPanel {
+      position: fixed;
+      right: 16px;
+      bottom: 84px;
+      width: min(420px, calc(100% - 32px));
+      height: min(560px, calc(100% - 120px));
+      display: none;
+      z-index: 110;
+    }
+
+    .aiPanel.open { display: block; }
+
+    .aiPanelCard {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      overflow: hidden;
+    }
+
+    .aiHeader {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15,27,51,0.35);
+    }
+
+    .aiHeaderTitle {
+      font-weight: 900;
+    }
+
+    .product .name { font-weight: 900; }
+    .product .desc { color: var(--muted); font-size: 13px; line-height: 1.45; margin-top: 6px; }
+    .product .price { font-weight: 900; margin-top: 10px; }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 18px 0 30px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      width: min(720px, calc(100% - 24px));
+      background: rgba(15,27,51,0.92);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      color: var(--text);
+      display: none;
+      z-index: 100;
+    }
+
+    code.inline {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 12px;
+      background: rgba(11,18,32,0.45);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 8px;
+      color: rgba(233,238,252,0.9);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container">
+      <div class="nav">
+        <div class="brand">
+          <div class="logo" aria-hidden="true"></div>
+          <div>
+            <div>DiabetoCare</div>
+            <div class="subtle" style="margin-top:2px;">AI-powered diabetes companion (demo)</div>
+          </div>
+        </div>
+
+        <nav class="navlinks" aria-label="Primary">
+          <button class="pill tabLink" type="button" data-tab="home">Home</button>
+          <button class="pill tabLink" type="button" data-tab="shop">Shop</button>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div id="tab-home" class="tabPage">
+    <section class="hero">
+      <div class="container">
+        <div class="heroGrid">
+          <div class="card heroCard">
+            <div class="subtle">AI-Powered Diabetes Management</div>
+            <h1 class="heroH1">Take Control of Your Diabetic Lifestyle</h1>
+            <p class="heroP">
+              Track glucose, plan workouts, and get instant guidance from an AI health companion.
+              This is a demo single-file page (Pyodide + browser storage). It is not medical advice.
+            </p>
+            <div class="row">
+              <a class="btn primary" href="#dashboard">Open Dashboard</a>
+              <button id="btnExploreShop" class="btn" type="button">Explore Products</button>
+              <button id="btnTryAI" class="btn" type="button">Try AI Assistant</button>
+            </div>
+            <div class="badges">
+              <div class="badge">50K+ active users (demo)</div>
+              <div class="badge">95% glucose control (demo)</div>
+              <div class="badge">4.9★ rating (demo)</div>
+            </div>
+          </div>
+
+          <div class="card statsCard" aria-label="Today summary">
+            <div class="subtle">Today</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:6px;">
+              <div style="font-weight:900; font-size:18px;">Sarah (demo profile)</div>
+              <div id="rangeBadge" class="badge" style="padding:6px 10px;">In Range</div>
+            </div>
+
+            <div class="bigStat">
+              <div class="mini">
+                <div class="label">Glucose</div>
+                <div class="value"><span id="glucoseNow">112</span> <span class="subtle" style="letter-spacing:0; text-transform:none;">mg/dL</span></div>
+              </div>
+              <div class="mini">
+                <div class="label">Steps</div>
+                <div class="value" id="stepsNow">8,432</div>
+              </div>
+              <div class="mini">
+                <div class="label">HbA1c</div>
+                <div class="value"><span id="a1cNow">6.2</span>%</div>
+              </div>
+              <div class="mini">
+                <div class="label">Next Dose</div>
+                <div class="value"><span id="doseTime">2:00 PM</span></div>
+              </div>
+            </div>
+
+            <div class="mini" style="margin-top:12px;">
+              <div class="label">AI Recommendation</div>
+              <div id="aiReco" style="margin-top:6px; color: var(--text); font-weight:800; line-height:1.35;">
+                Your glucose has been stable. Consider a 20-minute walk after lunch.
+              </div>
+              <div class="helper">Tip: update glucose in Dashboard and ask AI for personalized suggestions.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="sectionTitle">
+          <h2>Everything You Need to Manage Diabetes</h2>
+          <div class="subtle">Tracking • Guidance • Marketplace</div>
+        </div>
+
+        <div class="grid3">
+          <div class="feature">
+            <h3>Smart Health Dashboard</h3>
+            <p>Log glucose, HbA1c, steps, and medication timing. Get quick insights and trend-friendly summaries.</p>
+          </div>
+          <div class="feature">
+            <h3>Personalized Exercise Plans</h3>
+            <p>Choose workouts based on your goal: stabilization, insulin sensitivity, or weight management.</p>
+          </div>
+          <div class="feature">
+            <h3>AI Health Companion</h3>
+            <p>Ask about spikes, meal ideas, and activity guidance. Always verify with your clinician.</p>
+          </div>
+          <div class="feature">
+            <h3>Verified Marketplace (demo)</h3>
+            <p>Sample products like CGM sensors and diabetic essentials with Razorpay test checkout integration.</p>
+          </div>
+          <div class="feature">
+            <h3>Analytics & Reports (demo)</h3>
+            <p>Download your weekly summary as a JSON “report” (demo) stored in your browser.</p>
+          </div>
+          <div class="feature">
+            <h3>Smart Reminders (demo)</h3>
+            <p>Simple dose reminders using browser notifications (optional) and local timers.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dashboard">
+      <div class="container">
+        <div class="sectionTitle">
+          <h2>Dashboard</h2>
+          <div class="subtle">Demo data stored in your browser</div>
+        </div>
+
+        <div class="card">
+          <div class="dashboardGrid">
+            <div class="dashLeft">
+              <div class="subtle">Update your metrics</div>
+              <div class="row" style="margin-top:10px;">
+                <input id="inGlucose" class="input" inputmode="numeric" placeholder="Glucose (mg/dL)" />
+                <input id="inSteps" class="input" inputmode="numeric" placeholder="Steps" />
+                <input id="inA1c" class="input" inputmode="decimal" placeholder="HbA1c (%)" />
+              </div>
+              <div class="row" style="margin-top:10px;">
+                <input id="inDose" class="input" placeholder="Next dose time (e.g., 2:00 PM)" />
+                <button id="btnSaveDash" class="btn primary" type="button">Save</button>
+                <button id="btnWeekly" class="btn" type="button">Download weekly report</button>
+              </div>
+              <div class="helper">
+                This demo stores metrics in <code class="inline">localStorage</code>. No server.
+              </div>
+
+              <div class="mini" style="margin-top:12px;">
+                <div class="label">Range status</div>
+                <div id="rangeStatus" style="margin-top:6px; font-weight:900;">In Range</div>
+                <div class="helper">Common target range used in the demo: 70–180 mg/dL (confirm with your clinician).</div>
+              </div>
+            </div>
+
+            <div class="aiBox">
+              <div class="subtle">AI quick recommendation</div>
+              <div class="mini" style="margin-top:10px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                  <div class="label">Suggestion</div>
+                  <div id="aiStatus" class="badge" style="padding:6px 10px;">AI loading…</div>
+                </div>
+                <div id="aiReco2" style="margin-top:10px; font-weight:800; line-height:1.4;">—</div>
+                <div class="row" style="margin-top:10px;">
+                  <button id="btnAskReco" class="btn primary" type="button">Ask AI for a recommendation</button>
+                  <button id="btnOfflineReco" class="btn" type="button">Use offline suggestion</button>
+                </div>
+                <div class="helper">
+                  AI calls OpenAI directly from your browser after decrypting your encrypted key via Pyodide.
+                  This is insecure for production; for a real app, proxy AI calls through a backend.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="exercise">
+      <div class="container">
+        <div class="sectionTitle">
+          <h2>Workouts Designed for Your Glucose Goals</h2>
+          <div class="subtle">Choose a plan and get guidance</div>
+        </div>
+
+        <div class="card workouts">
+          <div class="workoutCards">
+            <div class="workout">
+              <div class="title">Sugar Stabilization</div>
+              <div class="meta"><span>25 min</span><span>Low</span><span>~120 cal</span><span>Post-meal</span><span>Beginners</span></div>
+              <div class="helper" style="margin-top:10px;">Gentle movement to keep glucose stable.</div>
+              <div class="row" style="margin-top:10px;">
+                <button class="btn primary" type="button" data-workout="stabilization">Generate plan</button>
+              </div>
+            </div>
+            <div class="workout">
+              <div class="title">Insulin Sensitivity</div>
+              <div class="meta"><span>40 min</span><span>Medium</span><span>~280 cal</span><span>Morning</span><span>Intermediate</span></div>
+              <div class="helper" style="margin-top:10px;">Build insulin response with steady cardio + strength.</div>
+              <div class="row" style="margin-top:10px;">
+                <button class="btn primary" type="button" data-workout="sensitivity">Generate plan</button>
+              </div>
+            </div>
+            <div class="workout">
+              <div class="title">Weight Management</div>
+              <div class="meta"><span>35 min</span><span>High</span><span>~350 cal</span><span>Evening</span><span>Advanced</span></div>
+              <div class="helper" style="margin-top:10px;">Cardio + strength blocks for long-term weight goals.</div>
+              <div class="row" style="margin-top:10px;">
+                <button class="btn primary" type="button" data-workout="weight">Generate plan</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini" style="margin-top:12px;">
+            <div class="label">Workout plan output</div>
+            <div id="workoutOut" style="margin-top:8px; color: var(--text); font-weight:700; line-height:1.45; white-space: pre-wrap;">Select a workout to generate a plan.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div>
+
+    <div id="tab-shop" class="tabPage">
+      <section id="shop">
+        <div class="container">
+          <div class="sectionTitle">
+            <h2>Shop Verified Products</h2>
+            <div class="subtle">Demo catalog + Razorpay test checkout</div>
+          </div>
+
+          <div class="shopIntro">
+            <div class="card" style="padding:16px;">
+              <div class="subtle">Diabetic Marketplace</div>
+              <div style="margin-top:8px; font-weight:900; font-size:18px;">Everything you need — from daily monitoring to lifestyle essentials.</div>
+              <div style="margin-top:8px; color: var(--muted); line-height:1.5; font-size:13px;">
+                This is a demo shop layout modeled after the category structure you shared. Product names/prices are demo entries.
+              </div>
+            </div>
+
+            <div class="card" style="padding:16px;">
+              <div class="subtle">Why people like it (demo)</div>
+              <div class="shopKpis" style="margin-top:10px;">
+                <div class="mini">
+                  <div class="label">Verified suppliers</div>
+                  <div class="value" style="font-size:18px;">✓</div>
+                </div>
+                <div class="mini">
+                  <div class="label">Fast delivery</div>
+                  <div class="value" style="font-size:18px;">24–48h</div>
+                </div>
+                <div class="mini">
+                  <div class="label">Easy subscriptions</div>
+                  <div class="value" style="font-size:18px;">Monthly</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="filtersRow">
+            <div id="shopFilters" class="filters" aria-label="Shop categories"></div>
+            <div class="subtle" id="shopCount">—</div>
+          </div>
+
+          <div class="card market">
+            <div class="products" id="products"></div>
+            <div class="mini" style="margin-top:12px;">
+              <div class="label">Checkout notes</div>
+              <div style="margin-top:8px; color: var(--muted); line-height:1.45; font-size:13px;">
+                Uses Razorpay test key in-browser. Real production payments should create an order on your backend and verify signatures.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section>
+      <div class="container">
+        <div class="card" style="padding:16px;">
+          <div class="sectionTitle" style="margin-bottom:6px;">
+            <h2>Start Your Journey to Better Health Today</h2>
+            <div class="subtle">No credit card required (demo)</div>
+          </div>
+          <p class="heroP" style="margin:0; max-width:none;">
+            This demo page mirrors the structure of the referenced landing page using new wording and code.
+            If you want, I can also package it as an Android app (WebView/Capacitor) like we discussed.
+          </p>
+          <div class="row" style="margin-top:12px;">
+            <button id="btnCtaAi" class="btn primary" type="button">Get Started Free</button>
+            <a class="btn" href="#exercise">Schedule a Demo</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container">
+      <div>© 2026 DiabetoCare (demo). Not affiliated with any medical provider.</div>
+      <div style="margin-top:6px;">Built as a single HTML file with Pyodide + localStorage.</div>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <div id="aiOverlay" class="overlay" aria-hidden="true"></div>
+  <div id="aiPanel" class="aiPanel" role="dialog" aria-modal="true" aria-label="AI Assistant">
+    <div class="card aiPanelCard">
+      <div class="aiHeader">
+        <div>
+          <div class="aiHeaderTitle">AI Assistant</div>
+          <div id="aiKeyHint" class="subtle" style="margin-top:2px; letter-spacing:0; text-transform:none;">AI status: initializing…</div>
+        </div>
+        <button id="btnCloseAI" class="btn" type="button">Close</button>
+      </div>
+
+      <div style="padding:12px; display:grid; grid-template-rows: auto 1fr auto; gap:10px; overflow:hidden;">
+        <div class="mini">
+          <div class="label">Safety note</div>
+          <div style="margin-top:8px; color: var(--muted); line-height:1.45; font-size:13px;">
+            Informational only; not medical advice. If you have symptoms of hypoglycemia/hyperglycemia, follow your care plan and seek medical help.
+          </div>
+        </div>
+
+        <div class="chat" style="min-height: 0;">
+          <div id="chatLog" class="chatLog" aria-live="polite"></div>
+          <div class="chatComposer">
+            <input id="chatIn" class="input" placeholder="Ask anything about your health…" />
+            <button id="btnSend" class="btn primary" type="button">Send</button>
+          </div>
+        </div>
+
+        <div class="chips">
+          <button class="chip" type="button" data-chip="My glucose spiked to 180 after lunch. What should I do?">Glucose spike</button>
+          <button class="chip" type="button" data-chip="Suggest a low-carb dinner idea and portion tips.">Meal idea</button>
+          <button class="chip" type="button" data-chip="What is a safe post-meal walk routine for stable sugar?">Post-meal walk</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button id="aiFab" class="fab" type="button" aria-label="Open AI Assistant">AI</button>
+
+  <!-- Pyodide (Python in the browser) -->
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+
+  <script>
+    // ====== Keys (provided by you) ======
+    // IMPORTANT: Putting API keys in client-side code is insecure for production.
+    // This is implemented because you requested a single-file HTML demo.
+    const OPENAI_KEY_ENCRYPTED = "cOw7g0W4eGXznpOpZzSoOFmOIm04p+lSkou0OhHs9D1LxWarB5lzePb5ss9QHLpgM5w9TQu9xmagjqUtGv/+BG3lXsJgk1oA8orawWIylTpUvw81L6jveoKPlCtUy8AmbekhmX3uIhrCkZrZExCBemLlCXNY87VUh5e/NBfo0DtM/nzHYbxQfOD5h8dKL5ZPVr03dgup2HPxj5IBC/f1BjLgIrI=";
+    const KEY_PASSPHRASE = "default_salt_2024";
+
+    const RAZORPAY_KEY = "rzp_test_R6m7F3hsZzwZB6";
+
+    // ====== Small helpers ======
+    const $ = (sel) => document.querySelector(sel);
+    const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+
+    function toast(msg, ms = 2200) {
+      const el = $("#toast");
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(toast._t);
+      toast._t = setTimeout(() => { el.style.display = "none"; }, ms);
+    }
+
+    function getDb() {
+      try {
+        return JSON.parse(localStorage.getItem("diabetocare_demo") || "{}") || {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function setDb(db) {
+      localStorage.setItem("diabetocare_demo", JSON.stringify(db));
+    }
+
+    function getMetrics() {
+      const db = getDb();
+      const m = db.metrics || {};
+      return {
+        glucose: Number.isFinite(+m.glucose) ? +m.glucose : 112,
+        steps: Number.isFinite(+m.steps) ? +m.steps : 8432,
+        a1c: Number.isFinite(+m.a1c) ? +m.a1c : 6.2,
+        dose: typeof m.dose === "string" && m.dose.trim() ? m.dose.trim() : "2:00 PM",
+      };
+    }
+
+    function setMetrics(m) {
+      const db = getDb();
+      db.metrics = m;
+      setDb(db);
+    }
+
+    function rangeStatus(glucose) {
+      if (!Number.isFinite(glucose)) return { label: "Unknown", cls: "" };
+      if (glucose < 70) return { label: "Low", cls: "danger" };
+      if (glucose > 180) return { label: "High", cls: "danger" };
+      return { label: "In Range", cls: "ok" };
+    }
+
+    function renderMetrics() {
+      const m = getMetrics();
+      $("#glucoseNow").textContent = String(Math.round(m.glucose));
+      $("#stepsNow").textContent = m.steps.toLocaleString();
+      $("#a1cNow").textContent = String(m.a1c);
+      $("#doseTime").textContent = m.dose;
+
+      const rs = rangeStatus(m.glucose);
+      $("#rangeStatus").textContent = rs.label;
+      $("#rangeStatus").className = rs.cls ? rs.cls : "";
+
+      const badge = $("#rangeBadge");
+      badge.textContent = rs.label;
+      badge.style.borderColor = rs.cls === "danger" ? "rgba(255,93,115,0.6)" : "rgba(53,208,127,0.55)";
+      badge.style.background = rs.cls === "danger" ? "rgba(255,93,115,0.10)" : "rgba(53,208,127,0.10)";
+
+      // Prefill inputs
+      $("#inGlucose").value = String(Math.round(m.glucose));
+      $("#inSteps").value = String(m.steps);
+      $("#inA1c").value = String(m.a1c);
+      $("#inDose").value = m.dose;
+    }
+
+    // ====== Pyodide decrypt (same algorithm as encrypt_keys.py) ======
+    let pyodideReady = null;
+    let openaiKey = null;
+
+    async function initPyodideAndDecrypt() {
+      $("#aiStatus").textContent = "AI loading…";
+      $("#aiKeyHint").textContent = "AI status: initializing Pyodide…";
+
+      pyodideReady = loadPyodide({});
+      const py = await pyodideReady;
+
+      await py.runPythonAsync(`
+import base64, hashlib
+
+def decrypt_key(encrypted_data: str, passphrase: str = "default_salt_2024") -> str:
+    try:
+        encrypted_bytes = base64.b64decode(encrypted_data)
+        key_hash = hashlib.sha256(passphrase.encode()).digest()
+        out = bytearray()
+        for i, b in enumerate(encrypted_bytes):
+            out.append(b ^ key_hash[i % len(key_hash)])
+        return out.decode("utf-8")
+    except Exception:
+        return ""
+`);
+
+      const decrypted = await py.runPythonAsync(`decrypt_key("""${OPENAI_KEY_ENCRYPTED}""", "${KEY_PASSPHRASE}")`);
+      openaiKey = (typeof decrypted === "string") ? decrypted.trim() : "";
+
+      if (!openaiKey) {
+        $("#aiStatus").textContent = "AI disabled";
+        $("#aiKeyHint").textContent = "AI status: key decryption failed (empty).";
+        return;
+      }
+
+      // Heuristic: many OpenAI keys start with sk-
+      if (!openaiKey.startsWith("sk-") && openaiKey.length < 20) {
+        $("#aiStatus").textContent = "AI warning";
+        $("#aiKeyHint").textContent = "AI status: decrypted key looks unusual; requests may fail.";
+      } else {
+        $("#aiStatus").textContent = "AI ready";
+        $("#aiKeyHint").textContent = "AI status: ready.";
+      }
+
+      // Seed chat
+      addMsg("assistant", "Hi! I’m your diabetes lifestyle companion (demo). Tell me your glucose reading, what you ate, and how you feel—and I’ll suggest safe next steps and activity ideas.\n\nReminder: I’m not a doctor.");
+    }
+
+    // ====== AI calling (OpenAI) ======
+    const chatState = {
+      messages: [],
+      busy: false,
+    };
+
+    function addMsg(role, text) {
+      chatState.messages.push({ role, content: String(text || "") });
+      const el = document.createElement("div");
+      el.className = `msg ${role === "user" ? "user" : ""}`;
+      el.textContent = String(text || "");
+      $("#chatLog").appendChild(el);
+      $("#chatLog").scrollTop = $("#chatLog").scrollHeight;
+    }
+
+    function buildSystemPrompt(metrics) {
+      return (
+        "You are a helpful diabetes lifestyle companion. " +
+        "You provide general education and coaching, not medical advice. " +
+        "Always encourage the user to follow their clinician’s plan. " +
+        "If symptoms are severe or numbers are dangerous, advise urgent care. " +
+        "Be concise and actionable. " +
+        "Use bullet points for steps. " +
+        `User metrics: glucose=${metrics.glucose} mg/dL, steps=${metrics.steps}, HbA1c=${metrics.a1c}%. `
+      );
+    }
+
+    async function callOpenAI(userText) {
+      if (!openaiKey) throw new Error("AI key not available");
+      if (chatState.busy) return;
+      chatState.busy = true;
+
+      const metrics = getMetrics();
+      const system = buildSystemPrompt(metrics);
+
+      const recent = chatState.messages.slice(-10);
+      const payload = {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: system },
+          ...recent,
+          { role: "user", content: userText },
+        ],
+        temperature: 0.4,
+      };
+
+      // Prefer chat/completions for broad compatibility.
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.error?.message || `OpenAI request failed (${res.status})`;
+        throw new Error(msg);
+      }
+
+      const out = data?.choices?.[0]?.message?.content;
+      return (typeof out === "string" && out.trim()) ? out.trim() : "(No response)";
+    }
+
+    async function sendChat(text) {
+      const t = String(text || "").trim();
+      if (!t) return;
+
+      addMsg("user", t);
+      $("#chatIn").value = "";
+
+      try {
+        $("#btnSend").disabled = true;
+        $("#btnSend").textContent = "…";
+        const resp = await callOpenAI(t);
+        addMsg("assistant", resp);
+      } catch (e) {
+        addMsg("assistant", `I couldn’t reach the AI service: ${e?.message || e}`);
+      } finally {
+        chatState.busy = false;
+        $("#btnSend").disabled = false;
+        $("#btnSend").textContent = "Send";
+      }
+    }
+
+    // ====== Offline suggestions (fallback) ======
+    function offlineRecommendation(metrics) {
+      const g = metrics.glucose;
+      if (!Number.isFinite(g)) return "Log a glucose reading to get a suggestion.";
+      if (g < 70) return "Your reading is low. Follow your hypo plan (fast carbs, recheck), and avoid exercise until stable.";
+      if (g > 180) return "Your reading is high. Consider hydration and a light walk if your care plan allows. Recheck later.";
+      return "Looks in range. Consider a 15–20 minute easy walk after meals and add fiber/protein to reduce spikes.";
+    }
+
+    // ====== Workouts generation ======
+    async function generateWorkoutPlan(kind) {
+      const metrics = getMetrics();
+      const prompt = {
+        stabilization: "Create a 25-minute beginner post-meal routine to help keep glucose stable. Include warm-up, main set, cool-down, and safety notes.",
+        sensitivity: "Create a 40-minute intermediate morning plan to improve insulin sensitivity. Include strength + cardio blocks, with safety notes.",
+        weight: "Create a 35-minute advanced evening plan for weight management with intervals + strength, with safety notes.",
+      }[kind] || "Create a safe diabetes-friendly workout plan.";
+
+      $("#workoutOut").textContent = "Generating plan…";
+
+      if (!openaiKey) {
+        $("#workoutOut").textContent = "AI not available. Offline plan: \n\n- 5 min easy warm-up walk\n- 15 min brisk walk\n- 5 min light strength (bodyweight)\n- 5 min cool-down + hydration\n\nSafety: check glucose before/after; follow your clinician’s plan.";
+        return;
+      }
+
+      try {
+        const resp = await callOpenAI(prompt);
+        $("#workoutOut").textContent = resp;
+      } catch (e) {
+        $("#workoutOut").textContent = `Could not generate workout: ${e?.message || e}`;
+      }
+    }
+
+    // ====== Marketplace + Razorpay ======
+    const SHOP_CATEGORIES = [
+      { key: "all", label: "All Products" },
+      { key: "insulin", label: "Insulin & Medication" },
+      { key: "cgm", label: "CGM Sensors" },
+      { key: "devices", label: "Monitoring Devices" },
+      { key: "nutrition", label: "Diabetic Nutrition" },
+      { key: "footcare", label: "Footwear & Care" },
+      { key: "supplements", label: "Supplements" },
+    ];
+
+    function googleImagesUrl(query) {
+      return `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(String(query || ""))}`;
+    }
+
+    function getProductImageOverride(productId) {
+      const db = getDb();
+      const map = db.productImages || {};
+      const v = map?.[productId];
+      return (typeof v === "string" && v.trim()) ? v.trim() : "";
+    }
+
+    function setProductImageOverride(productId, url) {
+      const db = getDb();
+      db.productImages = db.productImages || {};
+      const clean = String(url || "").trim();
+      if (!clean) {
+        delete db.productImages[productId];
+      } else {
+        db.productImages[productId] = clean;
+      }
+      setDb(db);
+    }
+
+    function getProductImg(p) {
+      const override = getProductImageOverride(p.id);
+      return override || p.img;
+    }
+
+    function placeholderImg(label) {
+      // Stable, simple images without copying any site assets.
+      return `https://placehold.co/600x420/png?text=${encodeURIComponent(label)}`;
+    }
+
+    const CURATED_PRODUCT_IMAGES = {
+      // Insulin / meds
+      "novorapid-flexpen": "https://upload.wikimedia.org/wikipedia/commons/2/2e/NovoRapid_insulin_pen_3ml.jpg",
+      "mounjaro-tirzepatide": "https://upload.wikimedia.org/wikipedia/commons/d/db/Lilly_mounjaro_KwikPen_Tirzepatid_5_mg_per_dose_rate-9441.jpg",
+      "novomix-30-flexpen": "https://upload.wikimedia.org/wikipedia/commons/2/2e/Insulin_analog_100_IU-1ml_novomix_pen_white_background.jpg",
+      "lantus-solostar": "https://upload.wikimedia.org/wikipedia/commons/b/be/Lantus_vial.jpg",
+
+      // CGMs
+      "freestyle-libre-2": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Libre_FreeStyle_2_sensor.jpg",
+      "freestyle-libre-3": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Abbott_Freestyle_Libre_3_sensor_applicator-1150.jpg",
+      "dexcom-g7": "https://upload.wikimedia.org/wikipedia/commons/1/1b/Cropped_dexcom_g7.jpg",
+    };
+
+    const PRODUCTS = [
+      // Insulin & Medication (6)
+      { id: "novorapid-flexpen", name: "Novorapid FlexPen", desc: "Fast-acting insulin for mealtime blood sugar control (demo listing).", priceInr: 7499, rating: 4.8, reviews: 1856, badge: "Prescription", category: "insulin" },
+      { id: "mounjaro-tirzepatide", name: "Mounjaro (Tirzepatide)", desc: "GLP-1 receptor agonist for type 2 diabetes (demo listing).", priceInr: 24999, rating: 4.9, reviews: 945, badge: "New", category: "insulin" },
+      { id: "novomix-30-flexpen", name: "Novomix 30 FlexPen", desc: "Premixed insulin for twice-daily dosing (demo listing).", priceInr: 7999, rating: 4.7, reviews: 1234, badge: "Prescription", category: "insulin" },
+      { id: "lantus-solostar", name: "Lantus SoloStar", desc: "Long-acting basal insulin for 24-hour coverage (demo listing).", priceInr: 10499, rating: 4.8, reviews: 2100, badge: "Best Seller", category: "insulin" },
+      { id: "metformin-xr", name: "Metformin XR", desc: "Extended-release metformin option for glycemic support (demo listing).", priceInr: 799, rating: 4.6, reviews: 5021, badge: "Popular", category: "insulin" },
+      { id: "glucose-gel", name: "Glucose Gel (3-pack)", desc: "Fast carbs for low glucose events — keep in your bag (demo listing).", priceInr: 399, rating: 4.7, reviews: 880, badge: "Essential", category: "insulin" },
+
+      // CGM Sensors (4)
+      { id: "freestyle-libre-2", name: "Freestyle Libre 2", desc: "14-day continuous glucose monitoring sensor (demo listing).", priceInr: 6499, rating: 4.9, reviews: 2340, badge: "Best Seller", category: "cgm" },
+      { id: "dexcom-g7", name: "Dexcom G7 Sensor", desc: "Advanced CGM with real-time alerts (demo listing).", priceInr: 7499, rating: 4.9, reviews: 1876, badge: "Premium", category: "cgm" },
+      { id: "freestyle-libre-3", name: "Freestyle Libre 3", desc: "Smaller, thinner CGM sensor design (demo listing).", priceInr: 6999, rating: 4.8, reviews: 890, badge: "New", category: "cgm" },
+      { id: "cgm-adhesive-patches", name: "CGM Adhesive Patches (20ct)", desc: "Extra hold patches to keep sensors secure (demo listing).", priceInr: 599, rating: 4.6, reviews: 420, badge: "Accessory", category: "cgm" },
+
+      // Monitoring Devices (5)
+      { id: "accu-chek-guide", name: "Accu-Chek Guide", desc: "Accurate blood glucose meter with easy strip handling (demo listing).", priceInr: 3999, rating: 4.7, reviews: 3200, badge: "Popular", category: "devices" },
+      { id: "onetouch-ultra-plus", name: "OneTouch Ultra Plus", desc: "Compact glucometer with range indicator (demo listing).", priceInr: 3499, rating: 4.6, reviews: 2800, badge: "Compact", category: "devices" },
+      { id: "test-strips-100", name: "Premium Test Strips 100ct", desc: "Compatible with major glucometer brands (demo listing).", priceInr: 1499, rating: 4.5, reviews: 1500, badge: "Value", category: "devices" },
+      { id: "contour-next-one", name: "Contour Next One", desc: "Bluetooth-enabled smart glucose meter (demo listing).", priceInr: 4299, rating: 4.8, reviews: 1920, badge: "Smart", category: "devices" },
+      { id: "bp-monitor", name: "Blood Pressure Monitor", desc: "Home BP tracking for cardio-metabolic awareness (demo listing).", priceInr: 2599, rating: 4.6, reviews: 1110, badge: "Home Care", category: "devices" },
+
+      // Diabetic Nutrition (4)
+      { id: "protein-bar-12", name: "Sugar-Free Protein Bar (12pk)", desc: "Protein bars with no added sugar (demo listing).", priceInr: 1899, rating: 4.6, reviews: 890, badge: "Low GI", category: "nutrition" },
+      { id: "meal-shake", name: "Diabetic Meal Shake", desc: "Complete nutrition shake for blood sugar management (demo listing).", priceInr: 2199, rating: 4.5, reviews: 650, badge: "Meal", category: "nutrition" },
+      { id: "snack-pack", name: "Low-Carb Snack Pack", desc: "Variety pack of diabetic-friendly snacks (demo listing).", priceInr: 1599, rating: 4.7, reviews: 420, badge: "New", category: "nutrition" },
+      { id: "portion-plates", name: "Portion Control Plate Set", desc: "Visual portioning to support meal consistency (demo listing).", priceInr: 999, rating: 4.6, reviews: 730, badge: "Helpful", category: "nutrition" },
+
+      // Footwear & Care (3)
+      { id: "orthopedic-shoes", name: "Orthopedic Comfort Shoes", desc: "Extra-wide shoes with cushioned insoles (demo listing).", priceInr: 8999, rating: 4.8, reviews: 567, badge: "Doctor Recommended", category: "footcare" },
+      { id: "compression-socks", name: "Compression Socks (3 pairs)", desc: "Graduated compression for improved circulation (demo listing).", priceInr: 1299, rating: 4.7, reviews: 890, badge: "Care", category: "footcare" },
+      { id: "walking-sneakers", name: "Diabetic Walking Sneakers", desc: "Lightweight sneakers with seamless interior (demo listing).", priceInr: 6499, rating: 4.6, reviews: 345, badge: "Everyday", category: "footcare" },
+
+      // Supplements (2)
+      { id: "support-complex", name: "Diabetes Support Complex", desc: "Chromium, berberine & cinnamon blend (demo listing).", priceInr: 1499, rating: 4.5, reviews: 780, badge: "Best Seller", category: "supplements" },
+      { id: "vitamin-d3-k2", name: "Vitamin D3 + K2", desc: "Essential vitamins for metabolic health (demo listing).", priceInr: 799, rating: 4.8, reviews: 1200, badge: "Essential", category: "supplements" },
+    ].map(p => ({
+      ...p,
+      categoryLabel: (SHOP_CATEGORIES.find(c => c.key === p.category)?.label || "").toUpperCase(),
+      img: CURATED_PRODUCT_IMAGES[p.id] || placeholderImg(p.name),
+    }));
+
+    let shopCategory = "all";
+
+    function formatReviews(n) {
+      try { return Number(n).toLocaleString(); } catch (_) { return String(n); }
+    }
+
+    function getFilteredProducts() {
+      if (shopCategory === "all") return PRODUCTS;
+      return PRODUCTS.filter(p => p.category === shopCategory);
+    }
+
+    function renderShopFilters() {
+      const root = $("#shopFilters");
+      if (!root) return;
+      root.innerHTML = "";
+
+      for (const c of SHOP_CATEGORIES) {
+        const count = c.key === "all" ? PRODUCTS.length : PRODUCTS.filter(p => p.category === c.key).length;
+        const btn = document.createElement("button");
+        btn.className = `chip ${c.key === shopCategory ? "active" : ""}`;
+        btn.type = "button";
+        btn.setAttribute("data-cat", c.key);
+        btn.textContent = `${c.label} (${count})`;
+        root.appendChild(btn);
+      }
+    }
+
+    function renderProducts() {
+      const root = $("#products");
+      root.innerHTML = "";
+      const list = getFilteredProducts();
+      const countEl = $("#shopCount");
+      if (countEl) countEl.textContent = `${list.length} item${list.length === 1 ? "" : "s"}`;
+
+      for (const p of list) {
+        const imgSrc = getProductImg(p);
+        const gUrl = googleImagesUrl(p.name);
+        const el = document.createElement("div");
+        el.className = "product";
+        el.innerHTML = `
+          <div class="productMedia"><img src="${escapeAttr(imgSrc)}" alt="${escapeAttr(p.name)}" loading="lazy" /></div>
+          <div class="row" style="margin-top:10px; justify-content: space-between;">
+            <a class="btn sm" href="${escapeAttr(gUrl)}" target="_blank" rel="noreferrer noopener">Google Images</a>
+            <button class="btn sm" type="button" data-setimg="${escapeAttr(p.id)}">Set image URL</button>
+          </div>
+          <div class="productBadges">
+            ${p.badge ? `<span class="tag">${escapeHtml(p.badge)}</span>` : ""}
+          </div>
+          <div class="categoryLabel">${escapeHtml(p.categoryLabel || "")}</div>
+          <div class="name" style="margin-top:6px;">${escapeHtml(p.name)}</div>
+          <div class="desc">${escapeHtml(p.desc)}</div>
+          <div class="ratingRow"><span class="star">★</span> ${escapeHtml(p.rating)} <span style="color: var(--muted2);">(${escapeHtml(formatReviews(p.reviews))} reviews)</span></div>
+          <div class="priceRow">
+            <div class="price">₹${Number(p.priceInr).toLocaleString()}</div>
+          </div>
+          <div class="productActions">
+            <div class="row">
+              <button class="btn primary" type="button" data-buy="${escapeAttr(p.id)}">Pay with Razorpay</button>
+              <button class="btn" type="button" data-add="${escapeAttr(p.id)}">Save</button>
+            </div>
+          </div>
+        `;
+
+        // If a custom image URL fails, revert to placeholder.
+        const imgEl = el.querySelector("img");
+        if (imgEl) {
+          imgEl.addEventListener("error", () => {
+            if (imgEl.dataset.failed === "1") return;
+            imgEl.dataset.failed = "1";
+            const override = getProductImageOverride(p.id);
+            if (override) {
+              setProductImageOverride(p.id, "");
+              toast("Image URL failed; reverted to placeholder");
+            }
+            imgEl.src = p.img;
+          });
+        }
+        root.appendChild(el);
+      }
+    }
+
+    function wireShopHandlers() {
+      const root = $("#products");
+      const filters = $("#shopFilters");
+      if (filters) {
+        filters.addEventListener("click", (e) => {
+          const btn = e.target?.closest?.("[data-cat]");
+          if (!btn) return;
+          const cat = btn.getAttribute("data-cat") || "all";
+          shopCategory = cat;
+          renderShopFilters();
+          renderProducts();
+        });
+      }
+
+      if (root) {
+        root.addEventListener("click", async (e) => {
+          const buy = e.target?.closest?.("[data-buy]");
+          const add = e.target?.closest?.("[data-add]");
+          const setImg = e.target?.closest?.("[data-setimg]");
+          if (buy) {
+            const id = buy.getAttribute("data-buy");
+            const prod = PRODUCTS.find(x => x.id === id);
+            if (prod) await startRazorpay(prod);
+          }
+          if (add) {
+            const id = add.getAttribute("data-add");
+            const prod = PRODUCTS.find(x => x.id === id);
+            if (prod) {
+              const db = getDb();
+              db.cart = db.cart || [];
+              db.cart.push({ id: prod.id, at: Date.now() });
+              setDb(db);
+              toast("Saved to demo cart");
+            }
+          }
+          if (setImg) {
+            const id = setImg.getAttribute("data-setimg") || "";
+            const prod = PRODUCTS.find(x => x.id === id);
+            if (!prod) return;
+
+            const current = getProductImageOverride(prod.id);
+            const hint = "Paste a direct image URL (https://...). Leave blank to reset to the placeholder.";
+            const url = prompt(hint, current || "");
+            if (url === null) return;
+
+            const clean = String(url || "").trim();
+            if (clean && !/^https?:\/\//i.test(clean)) {
+              toast("Please paste a full http(s) image URL");
+              return;
+            }
+
+            setProductImageOverride(prod.id, clean);
+            renderProducts();
+            toast(clean ? "Image updated" : "Image reset");
+          }
+        });
+      }
+    }
+
+    // ====== Tabs + Floating AI ======
+    function setActiveTab(tab) {
+      const t = (tab === "shop") ? "shop" : "home";
+      localStorage.setItem("diabetocare_tab", t);
+      const pages = [$("#tab-home"), $("#tab-shop")];
+      pages.forEach((p) => p && p.classList.remove("active"));
+      const active = $(t === "shop" ? "#tab-shop" : "#tab-home");
+      if (active) active.classList.add("active");
+
+      $$(".tabLink").forEach((b) => {
+        const isActive = (b.getAttribute("data-tab") === t);
+        b.classList.toggle("active", isActive);
+      });
+
+      try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch (_) {}
+    }
+
+    function openAI() {
+      $("#aiOverlay")?.classList.add("open");
+      $("#aiPanel")?.classList.add("open");
+      setTimeout(() => { try { $("#chatIn")?.focus(); } catch (_) {} }, 50);
+    }
+
+    function closeAI() {
+      $("#aiOverlay")?.classList.remove("open");
+      $("#aiPanel")?.classList.remove("open");
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+    }
+
+    function escapeAttr(s) {
+      return String(s).replace(/"/g, "&quot;");
+    }
+
+    async function loadRazorpayScript() {
+      if (window.Razorpay) return;
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "https://checkout.razorpay.com/v1/checkout.js";
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    async function startRazorpay(product) {
+      try {
+        await loadRazorpayScript();
+      } catch (_) {
+        toast("Could not load Razorpay SDK");
+        return;
+      }
+
+      const amountPaise = Math.round(Number(product.priceInr) * 100);
+      const options = {
+        key: RAZORPAY_KEY,
+        amount: String(amountPaise),
+        currency: "INR",
+        name: "DiabetoCare (Demo)",
+        description: product.name,
+        handler: function (response) {
+          const db = getDb();
+          db.payments = db.payments || [];
+          db.payments.push({
+            productId: product.id,
+            amountPaise,
+            paymentId: response?.razorpay_payment_id || null,
+            at: Date.now(),
+          });
+          setDb(db);
+          toast("Payment captured (demo)");
+        },
+        theme: { color: "#6ea8ff" },
+      };
+
+      try {
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+      } catch (e) {
+        toast("Razorpay error");
+      }
+    }
+
+    // ====== Weekly report ======
+    function downloadWeekly() {
+      const m = getMetrics();
+      const db = getDb();
+      const report = {
+        generatedAt: new Date().toISOString(),
+        metrics: m,
+        cartCount: Array.isArray(db.cart) ? db.cart.length : 0,
+        paymentsCount: Array.isArray(db.payments) ? db.payments.length : 0,
+        note: "Demo report. Not medical advice.",
+      };
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "diabetocare-weekly-report.json";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // ====== Wire up UI ======
+    function wireUi() {
+      renderMetrics();
+      renderShopFilters();
+      renderProducts();
+      wireShopHandlers();
+
+      // Tabs
+      const savedTab = localStorage.getItem("diabetocare_tab") || "home";
+      setActiveTab(savedTab);
+      $$(".tabLink").forEach((btn) => {
+        btn.addEventListener("click", () => setActiveTab(btn.getAttribute("data-tab")));
+      });
+      $("#btnExploreShop")?.addEventListener("click", () => setActiveTab("shop"));
+
+      // Floating AI
+      $("#aiFab")?.addEventListener("click", openAI);
+      $("#btnCloseAI")?.addEventListener("click", closeAI);
+      $("#aiOverlay")?.addEventListener("click", closeAI);
+      document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeAI(); });
+
+      $("#btnSaveDash").addEventListener("click", () => {
+        const glucose = parseFloat($("#inGlucose").value);
+        const steps = parseInt($("#inSteps").value, 10);
+        const a1c = parseFloat($("#inA1c").value);
+        const dose = $("#inDose").value;
+
+        const m = {
+          glucose: Number.isFinite(glucose) ? glucose : 112,
+          steps: Number.isFinite(steps) ? steps : 8432,
+          a1c: Number.isFinite(a1c) ? a1c : 6.2,
+          dose: String(dose || "2:00 PM"),
+        };
+        setMetrics(m);
+        renderMetrics();
+        toast("Dashboard updated");
+      });
+
+      $("#btnWeekly").addEventListener("click", downloadWeekly);
+
+      $("#btnOfflineReco").addEventListener("click", () => {
+        const txt = offlineRecommendation(getMetrics());
+        $("#aiReco2").textContent = txt;
+        $("#aiReco").textContent = txt;
+        toast("Offline suggestion applied");
+      });
+
+      $("#btnAskReco").addEventListener("click", async () => {
+        const m = getMetrics();
+        const prompt = `Give a safe, practical recommendation for the next 2 hours. My glucose is ${m.glucose} mg/dL, steps ${m.steps}, HbA1c ${m.a1c}%. Include 3 actions and 1 prevention tip.`;
+        if (!openaiKey) {
+          const txt = offlineRecommendation(m);
+          $("#aiReco2").textContent = txt;
+          $("#aiReco").textContent = txt;
+          toast("AI unavailable; using offline suggestion");
+          return;
+        }
+        try {
+          $("#aiReco2").textContent = "Asking AI…";
+          const resp = await callOpenAI(prompt);
+          $("#aiReco2").textContent = resp;
+          $("#aiReco").textContent = resp;
+        } catch (e) {
+          $("#aiReco2").textContent = `Could not get AI recommendation: ${e?.message || e}`;
+        }
+      });
+
+      $("#btnSend").addEventListener("click", () => sendChat($("#chatIn").value));
+      $("#chatIn").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") sendChat($("#chatIn").value);
+      });
+
+      $$(".chip").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const t = btn.getAttribute("data-chip") || "";
+          $("#chatIn").value = t;
+          $("#chatIn").focus();
+        });
+      });
+
+      $$("[data-workout]").forEach((btn) => {
+        btn.addEventListener("click", () => generateWorkoutPlan(btn.getAttribute("data-workout")));
+      });
+
+      $("#btnTryAI").addEventListener("click", () => {
+        openAI();
+      });
+
+      $("#btnCtaAi")?.addEventListener("click", openAI);
+    }
+
+    // ====== Boot ======
+    (function boot() {
+      wireUi();
+      // Default offline recommendation immediately, then upgrade if AI works.
+      const txt = offlineRecommendation(getMetrics());
+      $("#aiReco2").textContent = txt;
+
+      initPyodideAndDecrypt()
+        .catch((e) => {
+          $("#aiStatus").textContent = "AI disabled";
+          $("#aiKeyHint").textContent = `AI status: Pyodide init failed (${e?.message || e}).`;
+        });
+    })();
+  </script>
+</body>
+</html>
